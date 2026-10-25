@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GigSplit Native</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+    --driver: #10b981; --platform: #ef4444; --resto: #3b82f6; --accent: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background-color: var(--bg); color: var(--text); padding: 16px; max-width: 480px; margin: 0 auto; padding-bottom: 60px; }
+  header { text-align: center; margin-bottom: 16px; }
+  header h1 { font-size: 1.5rem; font-weight: 800; color: #38bdf8; }
+  header p { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--card); border-radius: 16px; padding: 14px; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.06); }
+  .card h2 { font-size: 0.95rem; margin-bottom: 10px; color: #e2e8f0; }
+  .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { flex: 1; background: #334155; color: white; border: none; padding: 10px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--accent); }
+  .btn-green { background: var(--driver); color: #052e16; }
+  .input-group { margin-bottom: 10px; }
+  .input-group label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+  .input-row { display: flex; align-items: center; background: #0f172a; border-radius: 10px; padding: 8px 12px; border: 1px solid #334155; }
+  .input-row input { background: transparent; border: none; color: white; font-size: 1.05rem; font-weight: 700; width: 100%; outline: none; }
+  .bar-container { height: 26px; width: 100%; background: #0f172a; border-radius: 13px; overflow: hidden; display: flex; margin: 12px 0; }
+  .bar-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: white; }
+  .verdict { text-align: center; padding: 10px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; background: rgba(239,68,68,0.15); color: #fca5a5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ GigSplit Native</h1>
+  <p>Millisekund-beslutsstöd & Rättvisekalkylator</p>
+</header>
+
+<div class="card">
+  <h2>⚙️ 1. Systemkoppling (Uber / Bolt / Bud)</h2>
+  <p style="font-size:0.78rem; color:#94a3b8; margin-bottom:8px;">Aktivera dessa två knappar första gången så läser appen av kr/min och kr/km automatiskt vid varje ping:</p>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="openOverlay()">1. Tillåt Svävande Ruta</button>
+    <button class="btn btn-primary" onclick="openAccess()">2. Slå på Snabbläsare</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-green" onclick="testBanner()">🚀 Testa Svävande Beslutsruta nu!</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🚖 2. Senast fångade körning vs Kundens pris</h2>
+  <div class="input-group">
+    <label>Kunden betalade totalt i sin app (SEK)</label>
+    <div class="input-row"><input type="number" id="custPaid" value="320" oninput="calc()"></div>
+  </div>
+  <div class="input-group">
+    <label>Din ersättning (fångas automatiskt vid ping)</label>
+    <div class="input-row"><input type="number" id="driverGot" value="175" oninput="calc()"></div>
+  </div>
+  <div id="tripMetrics" style="font-size:0.8rem; color:#6ee7b7; margin-top:4px;"></div>
+</div>
+
+<div class="card">
+  <h2>📊 3. Fördelning (Visas för kunden)</h2>
+  <div class="bar-container" id="bar"></div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<script>
+function openOverlay() { if(window.AndroidBridge) AndroidBridge.openOverlaySettings(); }
+function openAccess() { if(window.AndroidBridge) AndroidBridge.openAccessibilitySettings(); }
+function testBanner() { if(window.AndroidBridge) AndroidBridge.testOverlayDemo(); }
+
+function refreshFromNative() {
+  if (!window.AndroidBridge) return;
+  try {
+    const data = JSON.parse(AndroidBridge.getLastCapturedOfferJson());
+    if (data && data.price) {
+      document.getElementById('driverGot').value = Math.round(data.price);
+      const kpm = data.min > 0 ? (data.price / data.min).toFixed(2) : '-';
+      const kpk = data.km > 0 ? (data.price / data.km).toFixed(1) : '-';
+      document.getElementById('tripMetrics').innerText =
+        `Senaste fångst (${data.app}): ${data.min} min • ${data.km} km → ${kpm} kr/min (${kpk} kr/km)`;
+      calc();
+    }
+  } catch(e) {}
+}
+
+function calc() {
+  const c = parseFloat(document.getElementById('custPaid').value) || 0;
+  const d = parseFloat(document.getElementById('driverGot').value) || 0;
+  if (c <= 0) return;
+  const p = Math.max(0, c - d);
+  const dp = Math.round((d/c)*100);
+  const pp = 100 - dp;
+  document.getElementById('bar').innerHTML =
+    `<div class="bar-seg" style="width:${dp}%;background:#10b981">Förare ${dp}%</div>` +
+    `<div class="bar-seg" style="width:${pp}%;background:#ef4444">Appen ${pp}%</div>`;
+  document.getElementById('verdict').innerText =
+    `Plattformen tog ${p} kr (${pp}%) av kundens betalning. Föraren fick ${d} kr före skatt & bilkostnader.`;
+}
+
+refreshFromNative();
+calc();
+</script>
+</body>
+</html>

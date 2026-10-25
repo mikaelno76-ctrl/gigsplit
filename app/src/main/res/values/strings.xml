@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GigSplit</string>
+    <string name="accessibility_desc">Läser automatiskt av pris, tid och distans på inkommande uppdrag i Uber Driver, Bolt Driver och matbudsappar för att räkna ut kr/min och kr/km i realtid.</string>
+</resources>
